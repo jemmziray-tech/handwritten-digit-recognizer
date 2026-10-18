@@ -261,12 +261,32 @@ if not model_loaded:
 
 
 # ==============================================================================
-# Image Input Section: Upload or Gallery
+# Image Input Section: Live Camera, Upload, or Gallery
 # ==============================================================================
-input_tab_upload, input_tab_gallery = st.tabs(["📤 Upload Image", "🖼️ Sample Gallery"])
+input_tab_camera, input_tab_upload, input_tab_gallery = st.tabs([
+    "📸 Live Camera",
+    "📤 Upload Image",
+    "🖼️ Sample Gallery",
+])
 
 selected_image: Optional[Image.Image] = None
 source_name: str = ""
+
+with input_tab_camera:
+    st.markdown("📸 **Hold your handwritten paper in front of your camera:**")
+    camera_file = st.camera_input(
+        "Take a live picture of the digit on paper",
+        help="Point your webcam or phone camera at the handwritten digit on paper and click 'Take Photo'.",
+        key="camera_capture",
+    )
+    if camera_file is not None:
+        try:
+            selected_image = preprocessing.load_input_image(camera_file.getvalue())
+            source_name = "Live Camera Photo"
+            if "gallery_pick" in st.session_state:
+                del st.session_state["gallery_pick"]
+        except Exception as err:
+            st.error(f"Could not process camera capture: {err}")
 
 with input_tab_upload:
     uploaded_file = st.file_uploader(
@@ -275,10 +295,12 @@ with input_tab_upload:
         help="Supports phone photos, notebook paper, scans, sketches, and digital drawings.",
         key="uploader",
     )
-    if uploaded_file is not None:
+    if uploaded_file is not None and selected_image is None:
         try:
             selected_image = preprocessing.load_input_image(uploaded_file.getvalue())
             source_name = uploaded_file.name
+            if "gallery_pick" in st.session_state:
+                del st.session_state["gallery_pick"]
         except Exception as err:
             st.error(f"Could not load image: {err}")
 
@@ -297,6 +319,7 @@ with input_tab_gallery:
                 if st.button(f"📷 {sp}", key=f"btn_{sp}", use_container_width=True):
                     selected_image = preprocessing.load_input_image(p)
                     source_name = sp
+                    st.session_state["gallery_pick"] = (selected_image, source_name)
 
     with col_cat2:
         st.markdown("**Clean MNIST Samples**")
@@ -307,6 +330,7 @@ with input_tab_gallery:
                 if st.button(f"🔢 {sm}", key=f"btn_{sm}", use_container_width=True):
                     selected_image = preprocessing.load_input_image(p)
                     source_name = sm
+                    st.session_state["gallery_pick"] = (selected_image, source_name)
 
     with col_cat3:
         st.markdown("**Multi-Digit Sequences**")
@@ -317,11 +341,18 @@ with input_tab_gallery:
                 if st.button(f"🔤 {smu}", key=f"btn_{smu}", use_container_width=True):
                     selected_image = preprocessing.load_input_image(p)
                     source_name = smu
+                    st.session_state["gallery_pick"] = (selected_image, source_name)
+
+# Check gallery pick fallback
+if selected_image is None and "gallery_pick" in st.session_state:
+    selected_image, source_name = st.session_state["gallery_pick"]
 
 # Clear action
 if selected_image is not None:
     st.sidebar.markdown("---")
     if st.sidebar.button("🗑️ Clear / Reset Image", use_container_width=True):
+        if "gallery_pick" in st.session_state:
+            del st.session_state["gallery_pick"]
         st.rerun()
 
 
